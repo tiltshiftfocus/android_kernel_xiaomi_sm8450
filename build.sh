@@ -30,12 +30,31 @@ while [ "${#}" -gt 0 ]; do
         -o | --only-config )
                 ONLY_CONFIG=true
                 ;;
+        --ksunext )
+                KSUNEXT_ENABLE=true
+                ;;
+        --sukisu )
+                SUKISU_ENABLE=true
+                ;;
+        --susfs )
+                SUSFS_ENABLE=true
+                ;;
         * )
                 TARGET="${1}"
                 ;;
     esac
     shift
 done
+
+if [[ $KSUNEXT_ENABLE && $SUKISU_ENABLE ]]; then
+  echo "Enable only either KSU Next (--ksun) or SukiSU (--sukisu)"
+  exit 1
+fi
+
+if [[ $SUSFS_ENABLE && (! $KSUNEXT_ENABLE && ! $SUKISU_ENABLE) ]]; then
+  echo "SUSFS (--susfs) requires either KSU Next (--ksun) or SukiSU (--sukisu)"
+  exit 1
+fi
 
 if [ -z "$TARGET" ]; then
     echo "Target (device) not specified!"
@@ -129,16 +148,82 @@ $DO_CLEAN && (
     echo "Cleaned output directories."
 )
 
+rmdir KernelSU
+if [ $KSUNEXT_ENABLE ]; then
+    echo -e "Installing KernelSU Next...\n"
+    if [ $SUSFS_ENABLE ]; then
+      git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10
+      cp -r susfs4ksu/kernel_patches/* .
+      patch -p1 < 50*.patch
+      rm -rf KernelSU
+      rm -rf susfs4ksu
+      curl -LSs "https://raw.githubusercontent.com/tiltshiftfocus/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
+    else
+      curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -
+    fi
+    #curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+    #curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-1.5.7
+    #echo "Include other managers ..."
+    #sed -i '/return (check_v2_signature(path, EXPECTED_SIZE, EXPECTED_HASH) ||/a\
+    #          check_v2_signature(path, 0x363, "4359c171f32543394cbc23ef908c4bb94cad7c8087002ba164c8230948c21549") /*dummy.keystore*/ || \
+    #          check_v2_signature(path, 0x3e6, "79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7") /*KernelSU-Next*/ || \
+    #          \' KernelSU/kernel/apk_sign.c
+fi
+if [ $SUKISU_ENABLE ]; then
+    echo -e "Installing SukiSU...\n"
+    git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10
+    (cd susfs4ksu && git reset --hard 5a3153f9f8b18ed81628d9cc33726f52e5a5f5c6)
+    cp -r susfs4ksu/kernel_patches/* .
+    patch -p1 < 50*.patch
+    rm -rf susfs4ksu
+    rm -rf KernelSU
+    curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-1.5.7
+fi
+
 mkdir -p out
 export LOCALVERSION="$(get_trees_rev)"
 
 echo -e "Generating config...\n"
 m $DEFCONFIG
 m ./scripts/kconfig/merge_config.sh $DEFCONFIGS vendor/${TARGET}_GKI.config
+
 scripts/config --file out/.config \
-    --set-str LOCALVERSION "-$BRANCH" \
-    -d LOCALVERSION_AUTO \
-    -m CONFIG_KSU
+    --set-str LOCALVERSION "-vauxite"
+
+scripts/config --file out/.config \
+		-e MACH_XIAOMI_MARBLE \
+            -e TCP_CONG_ADVANCED \
+            -e TCP_CONG_WESTWOOD \
+            -e DEFAULT_WESTWOOD
+
+
+if [[ $KSUNEXT_ENABLE || $SUKISU_ENABLE ]]; then
+    scripts/config --file out/.config \
+    -e KSU
+else
+    scripts/config --file out/.config -d KSU
+fi
+
+if [ $SUSFS_ENABLE ]; then
+    echo "SuSFS is Enabled"
+    scripts/config --file out/.config \
+    -e KSU_SUSFS_HAS_MAGIC_MOUNT \
+    -e KSU_SUSFS_SUS_PATH \
+    -e KSU_SUSFS_SUS_MOUNT \
+    -e KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT \
+    -e KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT \
+    -e KSU_SUSFS_SUS_KSTAT \
+    -e KSU_SUSFS_SUS_OVERLAYFS \
+    -e KSU_SUSFS_TRY_UMOUNT \
+    -e KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT \
+    -e KSU_SUSFS_SPOOF_UNAME \
+    -e KSU_SUSFS_ENABLE_LOG \
+    -e KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
+    -e KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
+    -e KSU_SUSFS_OPEN_REDIRECT \
+    -e KSU_SUSFS_SUS_SU 
+fi
+
 $NO_LTO && (
     scripts/config --file out/.config \
         --set-str LOCALVERSION "-${BRANCH}-nolto" \
@@ -152,15 +237,6 @@ echo -e "\nBuilding kernel...\n"
 m Image modules dtbs
 rm -rf out/modules out/*.ko
 m INSTALL_MOD_PATH=modules INSTALL_MOD_STRIP=1 modules_install
-
-echo -e "\nCopying KSU LKM..."
-ksu_path="$(find $modules_out -name 'kernelsu.ko' -print -quit)"
-if [ -n "$ksu_path" ]; then
-    mv "$ksu_path" out
-    echo "Copied to out/kernelsu.ko"
-else
-    echo "Unable to locate ksu module!"
-fi
 
 echo -e "\nBuilding techpack modules..."
 for module in $MODULES; do
