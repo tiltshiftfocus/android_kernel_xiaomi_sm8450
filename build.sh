@@ -20,6 +20,8 @@ ONLY_MODULES=false
 TARGET=
 DTB_WILDCARD="*"
 DTBO_WILDCARD="*"
+KSUNEXT_ENABLE=false
+SUSFS_ENABLE=false
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -29,6 +31,8 @@ while [ $# -gt 0 ]; do
         -k | --only-kernel) ONLY_KERNEL=true ;;
         -d | --only-dtb) ONLY_DTB=true ;;
         -m | --only-modules) ONLY_MODULES=true ;;
+        --ksunext ) KSUNEXT_ENABLE=true ;;
+        --susfs ) SUSFS_ENABLE=true ;;
         *) TARGET="$1" ;;
     esac
     shift
@@ -60,7 +64,12 @@ VDLKM_DIR="$KERNEL_DIR/vendor_dlkm"
 DEFCONFIG="gki_defconfig"
 DEFCONFIGS="vendor/waipio_GKI.config \
 vendor/xiaomi_GKI.config \
+vendor/westwood.config \
 vendor/debugfs.config"
+
+if [ $SUSFS_ENABLE ]; then
+  DEFCONFIGS+="vendor/susfs.config"
+fi
 
 MODULES_SRC="../$MODULES_REPO/qcom/opensource"
 MODULES="mmrm-driver \
@@ -244,18 +253,46 @@ $DO_CLEAN && {
     echo_i "Cleaned output directories."
 }
 
+rmdir KernelSU
+
+echo "Enabling KernelSU..."
+curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
+if [ $SUSFS_ENABLE ]; then
+  git clone https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10
+  cp -r susfs4ksu/kernel_patches/* .
+  sed -i 's/if (susfs_is_boot_completed_triggered)/if (false)/g' 50_add_susfs_in_gki-android12-5.10.patch
+  patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
+  (cd KernelSU && patch -p1 < 10_enable_susfs_for_ksu.patch)
+  rm -rf susfs4ksu
+fi
+
+if [ $KSUNEXT_ENABLE ]; then
+  echo "Adding KernelSU Next ..."
+  sed -i '/return (check_v2_signature(path, EXPECTED_SIZE, EXPECTED_HASH) ||/a\
+              check_v2_signature(path, 0x3e6, "79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7") /*KernelSU-Next*/ || \
+              \' KernelSU/kernel/apk_sign.c
+fi
+
 mkdir -p out
 
 echo_i "Generating config..."
 m $DEFCONFIG
 m ./scripts/kconfig/merge_config.sh $DEFCONFIGS vendor/${TARGET}_GKI.config
-scripts/config --file out/.config \
-    --set-str LOCALVERSION "-$BRANCH" \
-    -d LOCALVERSION_AUTO \
-    -m CONFIG_KSU
+
+if [ $SUSFS_ENABLE ]; then
+  scripts/config --file out/.config \
+      --set-str LOCALVERSION "-vauxite" \
+      -d LOCALVERSION_AUTO
+else
+  scripts/config --file out/.config \
+      --set-str LOCALVERSION "-vauxite" \
+      -d LOCALVERSION_AUTO \
+      -m KSU
+fi
+
 $NO_LTO && {
     scripts/config --file out/.config \
-        --set-str LOCALVERSION "-${BRANCH}-nolto" \
+        --set-str LOCALVERSION "-vauxite-nolto" \
         -d LTO_CLANG_FULL -e LTO_NONE
     echo_i "Disabled LTO!"
 }
