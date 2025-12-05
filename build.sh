@@ -68,7 +68,7 @@ vendor/westwood.config \
 vendor/debugfs.config"
 
 if [ $SUSFS_ENABLE ]; then
-  DEFCONFIGS+="vendor/susfs.config"
+  DEFCONFIGS+=" vendor/susfs.config"
 fi
 
 MODULES_SRC="../$MODULES_REPO/qcom/opensource"
@@ -256,9 +256,10 @@ $DO_CLEAN && {
 rmdir KernelSU
 
 echo "Enabling KernelSU..."
-curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
+curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s 463afa7471b5a753d8bd989a5cb0dc781bfd986b
 if [ $SUSFS_ENABLE ]; then
   git clone https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10
+  (cd susfs4ksu && git checkout 8a749f02ef00610915d658126ef7e5d892e7fbae)
   cp -r susfs4ksu/kernel_patches/* .
   sed -i 's/if (susfs_is_boot_completed_triggered)/if (false)/g' 50_add_susfs_in_gki-android12-5.10.patch
   patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
