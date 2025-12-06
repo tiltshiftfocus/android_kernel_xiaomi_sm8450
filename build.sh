@@ -20,9 +20,6 @@ ONLY_MODULES=false
 TARGET=
 DTB_WILDCARD="*"
 DTBO_WILDCARD="*"
-KSUNEXT_ENABLE=false
-SUKISU_ENABLE=false
-SUSFS_ENABLE=false
 
 while [ $# -gt 0 ]; do
     case "$1" in
