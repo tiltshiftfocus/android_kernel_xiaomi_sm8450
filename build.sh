@@ -260,7 +260,7 @@ curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh
 if [ $SUSFS_ENABLE ]; then
   git clone https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10
   #(cd susfs4ksu && git checkout 971e72b009e06cc07708c738ed233e795c01cc0a)
-  (cd susfs4ksu && git checkout e8140a4c4df28b16587215ff83be284366c17b01) # 1.5.10
+  (cd susfs4ksu && git checkout 0ed20c1656af7806a1760837ad320e62a8fb40fd) # 1.5.10
   cp -r susfs4ksu/kernel_patches/* .
   #sed -i 's/if (susfs_is_boot_completed_triggered)/if (false)/g' 50_add_susfs_in_gki-android12-5.10.patch
   patch -p1 < 50*.patch
