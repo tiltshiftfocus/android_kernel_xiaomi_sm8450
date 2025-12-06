@@ -21,6 +21,7 @@ TARGET=
 DTB_WILDCARD="*"
 DTBO_WILDCARD="*"
 KSUNEXT_ENABLE=false
+SUKISU_ENABLE=false
 SUSFS_ENABLE=false
 
 while [ $# -gt 0 ]; do
@@ -32,6 +33,7 @@ while [ $# -gt 0 ]; do
         -d | --only-dtb) ONLY_DTB=true ;;
         -m | --only-modules) ONLY_MODULES=true ;;
         --ksunext ) KSUNEXT_ENABLE=true ;;
+        --sukisu ) SUKISU_ENABLE=true ;;
         --susfs ) SUSFS_ENABLE=true ;;
         *) TARGET="$1" ;;
     esac
@@ -41,6 +43,16 @@ done
 if [ -z "$TARGET" ]; then
     echo "Target (device) not specified!"
     exit 1
+fi
+
+if [[ $KSUNEXT_ENABLE && $SUKISU_ENABLE ]]; then
+  echo "Enable only either KSU Next (--ksun) or SukiSU (--sukisu)"
+  exit 1
+fi
+
+if [[ $SUSFS_ENABLE && (! $KSUNEXT_ENABLE && ! $SUKISU_ENABLE) ]]; then
+  echo "SUSFS (--susfs) requires either KSU Next (--ksun) or SukiSU (--sukisu)"
+  exit 1
 fi
 
 if ! source .build.rc || [ -z "$SRC_ROOT" ]; then
@@ -255,27 +267,51 @@ $DO_CLEAN && {
 
 rmdir KernelSU
 
-echo "Enabling KernelSU..."
-curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s 2159d0fb3c6e57a03332afd5552d7b81ce1d9e63
-if [ $SUSFS_ENABLE ]; then
-  git clone https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10
-  #(cd susfs4ksu && git checkout 971e72b009e06cc07708c738ed233e795c01cc0a)
-  (cd susfs4ksu && git checkout 0ed20c1656af7806a1760837ad320e62a8fb40fd) # 1.5.10
-  cp -r susfs4ksu/kernel_patches/* .
-  #sed -i 's/if (susfs_is_boot_completed_triggered)/if (false)/g' 50_add_susfs_in_gki-android12-5.10.patch
-  patch -p1 < 50*.patch
-  #(cd KernelSU && patch -p1 < 10_enable_susfs_for_ksu.patch)
-  rm -rf susfs4ksu
-fi
-
 if [ $KSUNEXT_ENABLE ]; then
-  echo "Adding KernelSU Next ..."
-  #sed -i '/return (check_v2_signature(path, EXPECTED_SIZE, EXPECTED_HASH) ||/a\
-  #            check_v2_signature(path, 0x363, "4359c171f32543394cbc23ef908c4bb94cad7c8087002ba164c8230948c21549") /*backslashxx*/ || \
-  #            check_v2_signature(path, 0x3e6, "79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7") /*KernelSU-Next*/ || \
-  #            \' KernelSU/kernel/apk_sign.c
+  echo_i "Installing KernelSU Next..."
+  if [ $SUSFS_ENABLE ]; then
+    git clone https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10
+    (cd susfs4ksu && git checkout 0ed20c1656af7806a1760837ad320e62a8fb40fd) # 1.5.10
+    cp -r susfs4ksu/kernel_patches/* .
+    patch -p1 < 50*.patch
+    rm -rf susfs4ksu
+  fi
   curl -LSs "https://raw.githubusercontent.com/tiltshiftfocus/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
 fi
+if [ $SUKISU_ENABLE ]; then
+  echo_i -e "Installing SukiSU..."
+  if [ $SUSFS_ENABLE ]; then
+    git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10
+    cp -r susfs4ksu/kernel_patches/* .
+    patch -p1 < 50*.patch
+    rm -rf susfs4ksu
+  fi
+  curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
+fi
+
+
+#echo "Enabling KernelSU..."
+##curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s 2159d0fb3c6e57a03332afd5552d7b81ce1d9e63
+#if [ $SUSFS_ENABLE ]; then
+#  git clone https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10
+#  #(cd susfs4ksu && git checkout 971e72b009e06cc07708c738ed233e795c01cc0a)
+#  (cd susfs4ksu && git checkout 0ed20c1656af7806a1760837ad320e62a8fb40fd) # 1.5.10
+#  cp -r susfs4ksu/kernel_patches/* .
+#  #sed -i 's/if (susfs_is_boot_completed_triggered)/if (false)/g' 50_add_susfs_in_gki-android12-5.10.patch
+#  patch -p1 < 50*.patch
+#  #(cd KernelSU && patch -p1 < 10_enable_susfs_for_ksu.patch)
+#  rm -rf KernelSU
+#  rm -rf susfs4ksu
+#fi
+#
+#if [ $KSUNEXT_ENABLE ]; then
+#  echo "Adding KernelSU Next ..."
+#  #sed -i '/return (check_v2_signature(path, EXPECTED_SIZE, EXPECTED_HASH) ||/a\
+#  #            check_v2_signature(path, 0x363, "4359c171f32543394cbc23ef908c4bb94cad7c8087002ba164c8230948c21549") /*backslashxx*/ || \
+#  #            check_v2_signature(path, 0x3e6, "79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7") /*KernelSU-Next*/ || \
+#  #            \' KernelSU/kernel/apk_sign.c
+#  curl -LSs "https://raw.githubusercontent.com/tiltshiftfocus/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
+#fi
 
 mkdir -p out
 
