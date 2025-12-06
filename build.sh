@@ -278,7 +278,7 @@ if [ $KSUNEXT_ENABLE ]; then
 fi
 if [ $SUKISU_ENABLE ]; then
   echo_i -e "Installing SukiSU..."
-  curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
+  curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s tmp-builtin
   if [ $SUSFS_ENABLE ]; then
     git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10
     cp -r susfs4ksu/kernel_patches/* .
