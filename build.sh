@@ -259,20 +259,22 @@ echo "Enabling KernelSU..."
 curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s 2159d0fb3c6e57a03332afd5552d7b81ce1d9e63
 if [ $SUSFS_ENABLE ]; then
   git clone https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10
-  (cd susfs4ksu && git checkout 971e72b009e06cc07708c738ed233e795c01cc0a)
+  #(cd susfs4ksu && git checkout 971e72b009e06cc07708c738ed233e795c01cc0a)
+  (cd susfs4ksu && git checkout e8140a4c4df28b16587215ff83be284366c17b01) # 1.5.10
   cp -r susfs4ksu/kernel_patches/* .
-  sed -i 's/if (susfs_is_boot_completed_triggered)/if (false)/g' 50_add_susfs_in_gki-android12-5.10.patch
-  patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
-  (cd KernelSU && patch -p1 < 10_enable_susfs_for_ksu.patch)
+  #sed -i 's/if (susfs_is_boot_completed_triggered)/if (false)/g' 50_add_susfs_in_gki-android12-5.10.patch
+  patch -p1 < 50*.patch
+  #(cd KernelSU && patch -p1 < 10_enable_susfs_for_ksu.patch)
   rm -rf susfs4ksu
 fi
 
 if [ $KSUNEXT_ENABLE ]; then
   echo "Adding KernelSU Next ..."
-  sed -i '/return (check_v2_signature(path, EXPECTED_SIZE, EXPECTED_HASH) ||/a\
-              check_v2_signature(path, 0x363, "4359c171f32543394cbc23ef908c4bb94cad7c8087002ba164c8230948c21549") /*backslashxx*/ || \
-              check_v2_signature(path, 0x3e6, "79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7") /*KernelSU-Next*/ || \
-              \' KernelSU/kernel/apk_sign.c
+  #sed -i '/return (check_v2_signature(path, EXPECTED_SIZE, EXPECTED_HASH) ||/a\
+  #            check_v2_signature(path, 0x363, "4359c171f32543394cbc23ef908c4bb94cad7c8087002ba164c8230948c21549") /*backslashxx*/ || \
+  #            check_v2_signature(path, 0x3e6, "79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7") /*KernelSU-Next*/ || \
+  #            \' KernelSU/kernel/apk_sign.c
+  curl -LSs "https://raw.githubusercontent.com/tiltshiftfocus/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
 fi
 
 mkdir -p out
