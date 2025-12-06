@@ -266,6 +266,8 @@ rmdir KernelSU
 
 if [ $KSUNEXT_ENABLE ]; then
   echo_i "Installing KernelSU Next..."
+  curl -LSs "https://raw.githubusercontent.com/tiltshiftfocus/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
+  rmdir KernelSU
   if [ $SUSFS_ENABLE ]; then
     git clone https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10
     (cd susfs4ksu && git checkout 0ed20c1656af7806a1760837ad320e62a8fb40fd) # 1.5.10
@@ -273,17 +275,16 @@ if [ $KSUNEXT_ENABLE ]; then
     patch -p1 < 50*.patch
     rm -rf susfs4ksu
   fi
-  curl -LSs "https://raw.githubusercontent.com/tiltshiftfocus/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
 fi
 if [ $SUKISU_ENABLE ]; then
   echo_i -e "Installing SukiSU..."
+  curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
   if [ $SUSFS_ENABLE ]; then
     git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10
     cp -r susfs4ksu/kernel_patches/* .
     patch -p1 < 50*.patch
     rm -rf susfs4ksu
   fi
-  curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
 fi
 
 
