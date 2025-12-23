@@ -290,6 +290,7 @@ fi
 if [[ $SUSFS_ENABLE && (! $KSUNEXT_ENABLE && ! $SUKISU_ENABLE) ]]; then
   curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s 3d73f89
   setup_susfs
+  (cd KernelSU && patch -p1 < 10_enable_susfs_for_ksu.patch)
 fi
 
 
