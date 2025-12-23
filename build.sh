@@ -47,11 +47,6 @@ if [[ $KSUNEXT_ENABLE && $SUKISU_ENABLE ]]; then
   exit 1
 fi
 
-if [[ $SUSFS_ENABLE && (! $KSUNEXT_ENABLE && ! $SUKISU_ENABLE) ]]; then
-  echo "SUSFS (--susfs) requires either KSU Next (--ksun) or SukiSU (--sukisu)"
-  exit 1
-fi
-
 if ! source .build.rc || [ -z "$SRC_ROOT" ]; then
     echo -e "Create a .build.rc file here and define\nSRC_ROOT=<path/to/aospa/source>"
     exit 1
@@ -250,6 +245,16 @@ build_dtbs() {
     echo_i "Generated dtbo.img to $DTBO_COPY_TO".
 }
 
+setup_susfs() {
+    git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10
+    if [ ! -z $1 ]; then
+      (cd susfs4ksu && git checkout $1)
+    fi
+    cp -r susfs4ksu/kernel_patches/* .
+    patch -p1 < 50*.patch
+    rm -rf susfs4ksu
+}
+
 ##
 ## Main logic starts here
 ##
@@ -264,27 +269,27 @@ $DO_CLEAN && {
 
 rmdir KernelSU
 
+# KSUNext
 if [ $KSUNEXT_ENABLE ]; then
   echo_i "Installing KernelSU Next..."
   curl -LSs "https://raw.githubusercontent.com/tiltshiftfocus/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
   rmdir KernelSU
   if [ $SUSFS_ENABLE ]; then
-    git clone https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10
-    (cd susfs4ksu && git checkout 0ed20c1656af7806a1760837ad320e62a8fb40fd) # 1.5.10
-    cp -r susfs4ksu/kernel_patches/* .
-    patch -p1 < 50*.patch
-    rm -rf susfs4ksu
+    setup_susfs 0ed20c1656af7806a1760837ad320e62a8fb40fd
   fi
 fi
+# SukiSU test
 if [ $SUKISU_ENABLE ]; then
   echo_i -e "Installing SukiSU..."
   curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s tmp-builtin
   if [ $SUSFS_ENABLE ]; then
-    git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10
-    cp -r susfs4ksu/kernel_patches/* .
-    patch -p1 < 50*.patch
-    rm -rf susfs4ksu
+    setup_susfs
   fi
+fi
+
+if [[ $SUSFS_ENABLE && (! $KSUNEXT_ENABLE && ! $SUKISU_ENABLE) ]]; then
+  curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s 3d73f89
+  setup_susfs
 fi
 
 
